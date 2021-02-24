@@ -1,14 +1,11 @@
 const express = require("express");
 const path = require("path");
 const bodyParser = require("body-parser");
-const mongodb = require("mongodb");
 const mongoose = require("./database");
 const app = express();
 
 const port = process.env.PORT || 3000;
 const middleware = require("./middleware");
-
-
 
 const server = app.listen(port, () =>
   console.log(`Listening on http://localhost:${port}`)
