@@ -137,3 +137,4 @@ timeDifference = (current, previous) => {
     return Math.round(elapsed / msPerYear) + " years ago";
   }
 };
+
