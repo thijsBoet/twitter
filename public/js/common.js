@@ -1,12 +1,12 @@
 $("#postTextarea").keyup((event) => {
   const textbox = $(event.target);
-  let value = textbox.val().trim();
+  const value = textbox.val().trim();
 
   const submitButton = $("#submitPostButton");
 
-  if (submitButton.length === 0) return alert("no submit Btn found");
+  if (submitButton.length == 0) return alert("No submit button found");
 
-  if (value === "") {
+  if (value == "") {
     submitButton.prop("disabled", true);
     return;
   }
@@ -14,7 +14,7 @@ $("#postTextarea").keyup((event) => {
   submitButton.prop("disabled", false);
 });
 
-$("#submitPostButton").click((event) => {
+$("#submitPostButton").click(() => {
   const button = $(event.target);
   const textbox = $("#postTextarea");
 
@@ -27,7 +27,6 @@ $("#submitPostButton").click((event) => {
     $(".postsContainer").prepend(html);
     textbox.val("");
     button.prop("disabled", true);
-    textbox.focus();
   });
 });
 
@@ -36,59 +35,104 @@ $(document).on("click", ".likeButton", (event) => {
   const postId = getPostIdFromElement(button);
 
   if (postId === undefined) return;
-  
+
   $.ajax({
-    type: "PUT",
     url: `/api/posts/${postId}/like`,
+    type: "PUT",
     success: (postData) => {
-      
-      button.find("span").text(postData.likes.length || "")
-      
+      button.find("span").text(postData.likes.length || "");
+
       if (postData.likes.includes(userLoggedIn._id)) {
         button.addClass("active");
       } else {
         button.removeClass("active");
       }
-    }
+    },
+  });
+});
+
+$(document).on("click", ".retweetButton", (event) => {
+  const button = $(event.target);
+  const postId = getPostIdFromElement(button);
+
+  if (postId === undefined) return;
+
+  $.ajax({
+    url: `/api/posts/${postId}/retweet`,
+    type: "POST",
+    success: (postData) => {
+      button.find("span").text(postData.retweetUsers.length || "");
+
+      if (postData.retweetUsers.includes(userLoggedIn._id)) {
+        button.addClass("active");
+      } else {
+        button.removeClass("active");
+      }
+    },
   });
 });
 
 getPostIdFromElement = (element) => {
   const isRoot = element.hasClass("post");
-  const rootElement = isRoot ? element : element.closest(".post");
-  postId = rootElement.data().id;
+  const rootElement = isRoot == true ? element : element.closest(".post");
+  const postId = rootElement.data().id;
 
   if (postId === undefined) return alert("Post id undefined");
 
   return postId;
-}
+};
 
 createPostHtml = (postData) => {
-  const { profilePic, username, firstName, lastName } = postData.postedBy;
-  const { content, createdAt, _id, likes } = postData;
+  if (postData == null) return alert("post object is null");
 
-  if (_id === undefined) {
-    console.log("User object not populated");
-    return;
+  const isRetweet = postData.retweetData !== undefined;
+  const retweetedBy = isRetweet ? postData.postedBy.username : null;
+  postData = isRetweet ? postData.retweetData : postData;
+
+  const postedBy = postData.postedBy;
+
+  if (postedBy._id === undefined) {
+    return console.log("User object not populated");
   }
 
-  const timestamp = timeDifference(new Date(), new Date(createdAt));
-  const likeButtonActiveClass = likes.includes(userLoggedIn._id) ? "active" : "";
+  const displayName = postedBy.firstName + " " + postedBy.lastName;
+  const timestamp = timeDifference(new Date(), new Date(postData.createdAt));
 
+  const likeButtonActiveClass = postData.likes.includes(userLoggedIn._id)
+    ? "active"
+    : "";
+  const retweetButtonActiveClass = postData.retweetUsers.includes(
+    userLoggedIn._id
+  )
+    ? "active"
+    : "";
 
-  return `<div class='post' data-id='${_id}'>
+  let retweetText = "";
+  if (isRetweet) {
+    retweetText = `<span>
+                        <i class='fas fa-retweet'></i>
+                        Retweeted by <a href='/profile/${retweetedBy}'>@${retweetedBy}</a>    
+                    </span>`;
+  }
+
+  return `<div class='post' data-id='${postData._id}'>
+            <div class='postActionContainer'>
+              ${retweetText}
+            </div>
                 <div class='mainContentContainer'>
                     <div class='userImageContainer'>
-                        <img src='${profilePic}'>
+                        <img src='${postedBy.profilePic}'>
                     </div>
                     <div class='postContentContainer'>
                         <div class='header'>
-                            <a href='/profile/${username}' class='displayName'>${firstName} ${lastName}</a>
-                            <span class='username'>@${username}</span>
+                            <a href='/profile/${
+                              postedBy.username
+                            }' class='displayName'>${displayName}</a>
+                            <span class='username'>@${postedBy.username}</span>
                             <span class='date'>${timestamp}</span>
                         </div>
                         <div class='postBody'>
-                            <span>${content}</span>
+                            <span>${postData.content}</span>
                         </div>
                         <div class='postFooter'>
                             <div class='postButtonContainer'>
@@ -97,21 +141,24 @@ createPostHtml = (postData) => {
                                 </button>
                             </div>
                             <div class='postButtonContainer green'>
-                                <button class="retweetButton">
+                                <button class='retweetButton ${retweetButtonActiveClass}'>
                                     <i class='fas fa-retweet'></i>
+                                    <span>${
+                                      postData.retweetUsers.length || ""
+                                    }</span>
                                 </button>
                             </div>
                             <div class='postButtonContainer red'>
-                                <button class="likeButton ${likeButtonActiveClass}">
+                                <button class='likeButton ${likeButtonActiveClass}'>
                                     <i class='far fa-heart'></i>
-                                    <span class=''>${likes.length || ""}</span>
+                                    <span>${postData.likes.length || ""}</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>`;
-}
+};
 
 timeDifference = (current, previous) => {
   const msPerMinute = 60 * 1000;
@@ -124,6 +171,7 @@ timeDifference = (current, previous) => {
 
   if (elapsed < msPerMinute) {
     if (elapsed / 1000 < 30) return "Just now";
+
     return Math.round(elapsed / 1000) + " seconds ago";
   } else if (elapsed < msPerHour) {
     return Math.round(elapsed / msPerMinute) + " minutes ago";
@@ -137,4 +185,3 @@ timeDifference = (current, previous) => {
     return Math.round(elapsed / msPerYear) + " years ago";
   }
 };
-
